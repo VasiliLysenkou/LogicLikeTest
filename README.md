@@ -1,50 +1,95 @@
-# Welcome to your Expo app 👋
+# LogicLike Test Task
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native application that displays educational courses from the LogicLike platform and allows filtering them by themes/tags.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Fetches courses data from the LogicLike API
+- Displays courses in a horizontal scrollable list
+- Allows filtering courses by themes/tags
+- Dynamically generates theme list from API response
+- Supports horizontal orientation
 
-   ```bash
-   npm install
-   ```
+## Screenshots
 
-2. Start the app
+The application follows the design from Figma: [React Native Interview Design](https://www.figma.com/design/8aQkXlD9tNGOiUivspLji6/React-Native-Interview?node-id=1-6&t=GG8Ol6IwgZUIPiM7-4)
 
-   ```bash
-   npx expo start
-   ```
+## Tech Stack
 
-In the output, you'll find options to open the app in a
+- React Native with Expo
+- TypeScript
+- React Navigation (Expo Router)
+- Expo Image
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- `/app` - Main application screens and navigation
+- `/components` - Reusable UI components
+- `/services` - API and data handling services
 
-## Get a fresh project
+## Getting Started
 
-When you're ready, run:
+### Prerequisites
+
+- Node.js (v14 or newer)
+- npm or yarn
+- Expo CLI
+
+### Installation
+
+1. Clone the repository
 
 ```bash
-npm run reset-project
+git clone <repository-url>
+cd LigicLikeTest
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Install dependencies
 
-## Learn more
+```bash
+npm install
+# or
+yarn install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Start the development server
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm start
+# or
+yarn start
+```
 
-## Join the community
+4. Run on a device or emulator
 
-Join our community of developers creating universal apps.
+- Scan the QR code with Expo Go app on your device
+- Press 'a' to run on Android emulator
+- Press 'i' to run on iOS simulator
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Implementation Details
+
+The application uses local state management as specified in the requirements. It avoids unnecessary re-renders by:
+
+1. Using `useCallback` for functions that are passed as props
+2. Implementing proper dependency arrays in `useEffect` hooks
+3. Only filtering courses when necessary
+
+## API
+
+The application fetches data from:
+
+```
+GET https://logiclike.com/docs/courses.json
+```
+
+Each course has the following structure:
+
+```typescript
+interface Course {
+  name: string;
+  id: string;
+  image: string;
+  bgColor: string;
+  tags: string[];
+}
+```

@@ -1,6 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,8 +11,10 @@ import {
   View,
 } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { CourseCard } from "@/components/CourseCard";
-import { ThemeSelector } from "@/components/ThemeSelector";
+import { ThemeButton } from "@/components/ThemeButton";
 import {
   Course,
   extractUniqueTags,
@@ -20,15 +23,20 @@ import {
 } from "@/services/api";
 
 export default function CoursesScreen() {
+  const insets = useSafeAreaInsets();
+
+  const router = useRouter();
+  const { selectedTheme: selectedThemeParam } = useLocalSearchParams();
+
   const [courses, setCourses] = useState<Course[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [themes, setThemes] = useState<string[]>([]);
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
-  const [isThemeSelectorVisible, setIsThemeSelectorVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Load courses data
-  const loadCourses = async () => {
+  const loadCourses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -40,6 +48,7 @@ export default function CoursesScreen() {
       }
 
       setCourses(coursesData);
+      setFilteredCourses(coursesData);
 
       // Extract unique themes/tags
       const uniqueTags = extractUniqueTags(coursesData);
@@ -50,43 +59,65 @@ export default function CoursesScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Load courses on initial render
   useFocusEffect(
     useCallback(() => {
       loadCourses();
-    }, [])
+    }, [loadCourses])
   );
 
-  // Memoized filtered courses
-  const filteredCourses = useMemo(() => {
-    return filterCoursesByTag(courses, selectedTheme);
-  }, [courses, selectedTheme]);
+  // Update selected theme from URL params
+  useEffect(() => {
+    if (selectedThemeParam) {
+      setSelectedTheme(selectedThemeParam as string);
+    }
+  }, [selectedThemeParam]);
 
-  // Handle theme selection
-  const handleSelectTheme = useCallback((theme: string | null) => {
-    setSelectedTheme(theme);
-  }, []);
+  // Filter courses when theme changes - using useMemo to avoid unnecessary filtering
+  useMemo(() => {
+    if (courses.length > 0) {
+      const filtered = filterCoursesByTag(courses, selectedTheme);
+      setFilteredCourses(filtered);
+    }
+  }, [selectedTheme, courses]);
 
-  // Toggle theme selector visibility
-  const toggleThemeSelector = useCallback(() => {
-    setIsThemeSelectorVisible(prev => !prev);
-  }, []);
+  // Navigate to theme selector screen - memoized to prevent recreation on re-renders
+  const navigateToThemeSelector = useCallback(() => {
+    router.push({
+      pathname: "/theme-selector",
+      params: {
+        themes: encodeURIComponent(JSON.stringify(themes)),
+        selectedTheme: selectedTheme || undefined,
+      },
+    });
+  }, [router, themes, selectedTheme]);
 
-  // Close theme selector
-  const closeThemeSelector = useCallback(() => {
-    setIsThemeSelectorVisible(false);
-  }, []);
+  // Memoized keyExtractor to prevent recreation on each render
+  const keyExtractor = useCallback((item: Course) => item.id, []);
 
-  // Memoized render item for FlatList
-  const renderCourseItem = useCallback(({ item }: { item: Course }) => {
-    return <CourseCard course={item} />;
-  }, []);
+  // Memoized renderItem function to prevent recreation on each render
+  const renderItem = useCallback(
+    ({ item }: { item: Course }) => <CourseCard course={item} />,
+    []
+  );
+
+  // Memoized container style with insets
+  const containerStyle = useMemo(
+    () => [styles.container, { paddingTop: insets.top }],
+    [insets.top]
+  );
+
+  // Memoized center container style with insets
+  const centerContainerStyle = useMemo(
+    () => [styles.centerContainer, { paddingTop: insets.top }],
+    [insets.top]
+  );
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={centerContainerStyle}>
         <ActivityIndicator size="large" color="#6200ee" />
       </View>
     );
@@ -94,7 +125,7 @@ export default function CoursesScreen() {
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={centerContainerStyle}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadCourses}>
           <Text style={styles.retryButtonText}>Retry</Text>
@@ -104,36 +135,27 @@ export default function CoursesScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={containerStyle}>
       <StatusBar style="auto" />
 
       {/* Theme selector button */}
-      <TouchableOpacity
-        style={styles.themeButton}
-        onPress={toggleThemeSelector}
-      >
-        <Text style={styles.themeButtonText}>
-          {selectedTheme || "Все темы"} ▼
-        </Text>
-      </TouchableOpacity>
+      <ThemeButton
+        selectedTheme={selectedTheme}
+        onPress={navigateToThemeSelector}
+      />
 
       {/* Courses list */}
       <FlatList
         data={filteredCourses}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCourseItem}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.coursesList}
-      />
-
-      {/* Theme selector modal */}
-      <ThemeSelector
-        visible={isThemeSelectorVisible}
-        onClose={closeThemeSelector}
-        themes={themes}
-        selectedTheme={selectedTheme}
-        onSelectTheme={handleSelectTheme}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={5}
       />
     </View>
   );
@@ -143,28 +165,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#6a3de8",
-    paddingTop: 40,
-    alignItems: "center",
-    justifyContent: "center",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#6a3de8",
-  },
-  themeButton: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    alignSelf: "center",
-    marginVertical: 20,
-  },
-  themeButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
   },
   coursesList: {
     paddingHorizontal: 16,
